@@ -163,14 +163,14 @@ input[type=email]:focus-visible{outline:3px solid var(--accent);outline-offset:1
       <div class="result">
         <h2>Tu resumen</h2>
         <div id="result"></div>
-        <p class="note">Valores orientativos. El importe final lo confirma Administración al momento de la inscripción.</p>
+        <p class="note">Los valores son orientativos y deben ser chequeados al momento de la inscripción.</p>
         <div class="actions"><button class="btn small ghost" type="button" id="copy">Copiar resumen</button><span class="note" id="copied" style="margin:0;align-self:center"></span></div>
       </div>
       <div class="promos">
         <h3>Promociones de los bancos</h3>
         <p class="note" style="margin:0 0 10px">Las ofrecen los bancos, no el club. No están descontadas del resumen y conviene consultar sus condiciones.</p>
         <ul>
-          <li><b>Banco Galicia · Eminent</b> (tarjetas de crédito y débito): 25% de descuento con tope de $ 50.000 por mes. Hasta el 30/12.</li>
+          <li><b>Banco Galicia · Eminent</b> (tarjetas de crédito y débito): 25% de reintegro que realiza el banco, con tope de $ 50.000 por mes. Hasta el 30/12.</li>
           <li><b>Banco Provincia · Visa</b>: 3 o 6 cuotas sin interés. Hasta el 30/12.</li>
         </ul>
       </div>
@@ -184,6 +184,10 @@ input[type=email]:focus-visible{outline:3px solid var(--accent);outline-offset:1
 </div>
 
 <script>
+// URL de la aplicación web de Apps Script (ver LEEME). Vacío = no se registra ni se envía nada.
+var ENDPOINT = 'https://script.google.com/macros/s/AKfycbwrllkGsSRI13qrn6uPfHTsNlhUretVSPc_FKkwo2PdsbIFOkVZgPEgoUXU2PdfCTyHoA/exec';
+var usuarioMail = '', consultaId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
+function enviar(obj){ if(!ENDPOINT) return Promise.resolve(false); try{ return fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(obj)}).then(function(){return true;},function(){return false;}); }catch(x){ return Promise.resolve(false); } }
 // ============ CÁLCULO (misma lógica que la planilla de Administración) ============
 // CORE-START
 var PRECIOS = {
@@ -360,7 +364,7 @@ function resumenTexto(){
     MESES.forEach(function(m){ var o=k['c'+m.n]; if(m.n===1&&row.adicional1)o='Mes completo (adicional)'; if(o==='NO')return; t += '  - '+m.nombre+' '+o+((m.n>1&&k['je'+m.n])?' + J. extendida':'')+': '+money(row.nets[m.n-1])+'\n'; });
     if(row.criterio) t += '  ('+row.criterio+')\n';
   });
-  t += '\nTotal a pagar: '+money(r.final)+(r.recargo?' (incluye recargo de tarjeta)':'')+'\nValores orientativos, sujetos a confirmación de Administración.';
+  t += '\nTotal a pagar: '+money(r.final)+(r.recargo?' (incluye recargo de tarjeta)':'')+'\nLos valores son orientativos y deben ser chequeados al momento de la inscripción.';
   return t;
 }
 
@@ -396,13 +400,14 @@ $('result').addEventListener('change', function(e){
 });
 $('addKid').addEventListener('click', function(){ if (kids.length < 4){ kids.push(nuevo()); renderKids(); renderResult(); } });
 document.querySelectorAll('input[name=pago]').forEach(function(r){ r.addEventListener('change', renderResult); });
-$('copy').addEventListener('click', function(){ copiar(resumenTexto()); });
+$('copy').addEventListener('click', function(){ var t = resumenTexto(); copiar(t); enviar({tipo:'copia', id:consultaId, email:usuarioMail, total:window.__ultimo.final, detalle:t}); });
 $('gateForm').addEventListener('submit', function(e){
   e.preventDefault();
   var mail = $('email').value.trim(), ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail);
   if (!ok){ $('gateErr').textContent = 'Escribí un mail válido, por ejemplo nombre@ejemplo.com.'; $('email').focus(); return; }
   if (!$('consent').checked){ $('gateErr').textContent = 'Para continuar, tildá la aceptación.'; return; }
   $('gateErr').textContent = '';
+  usuarioMail = mail; enviar({tipo:'ingreso', id:consultaId, email:mail});
   $('gate').hidden = true; $('app').hidden = false; $('minibar').hidden = false;
   renderKids(); renderResult();
 });
